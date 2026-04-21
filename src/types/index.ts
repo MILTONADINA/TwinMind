@@ -23,6 +23,12 @@ export type Batch = {
 
 export type Role = 'user' | 'assistant';
 
+export type CardSnapshot = {
+  type: CardType;
+  title: string;
+  preview: string;
+};
+
 export type Message = {
   id: string;
   role: Role;
@@ -30,6 +36,7 @@ export type Message = {
   content: string;
   streaming?: boolean;
   sourceCardId?: string;
+  cardSnapshot?: CardSnapshot;
 };
 
 export type Prompts = {

@@ -1,9 +1,11 @@
 'use client';
 
 import { Mic, MicOff } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { GROQ_KEY_HEADER } from '@/lib/groq';
 import { Recorder } from '@/lib/recorder';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/stores/session';
@@ -19,19 +21,18 @@ export function TranscriptColumn() {
   const recorderRef = useRef<Recorder | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const hasKey = apiKey.length > 0;
+
   const handleChunk = useCallback(
     async (blob: Blob, startedAt: number, durationMs: number) => {
       const currentKey = useSession.getState().apiKey;
-      if (!currentKey) {
-        toast.error('Add your Groq API key on the Settings page.');
-        return;
-      }
+      if (!currentKey) return;
       const form = new FormData();
       form.append('audio', blob, `chunk.${guessExt(blob.type)}`);
       try {
         const res = await fetch('/api/transcribe', {
           method: 'POST',
-          headers: { 'x-groq-key': currentKey },
+          headers: { [GROQ_KEY_HEADER]: currentKey },
           body: form,
         });
         if (!res.ok) {
@@ -49,10 +50,7 @@ export function TranscriptColumn() {
   );
 
   const startRecording = useCallback(async () => {
-    if (!apiKey) {
-      toast.error('Add your Groq API key on the Settings page.');
-      return;
-    }
+    if (!hasKey) return;
     if (!recorderRef.current) recorderRef.current = new Recorder();
     try {
       await recorderRef.current.start(handleChunk, chunkMs);
@@ -65,7 +63,7 @@ export function TranscriptColumn() {
         toast.error(err.message || 'Could not start microphone.');
       }
     }
-  }, [apiKey, chunkMs, handleChunk, setRecording]);
+  }, [hasKey, chunkMs, handleChunk, setRecording]);
 
   const stopRecording = useCallback(() => {
     recorderRef.current?.stop();
@@ -83,6 +81,12 @@ export function TranscriptColumn() {
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [chunks]);
+
+  const helperText = !hasKey
+    ? 'Add your Groq API key on the Settings page to enable the mic.'
+    : isRecording
+      ? 'Listening. Transcript appends every ~30s.'
+      : 'Click mic to start. Transcript appends every ~30s.';
 
   return (
     <Card className="flex h-full min-h-0 flex-col">
@@ -104,20 +108,29 @@ export function TranscriptColumn() {
           <button
             type="button"
             onClick={isRecording ? stopRecording : startRecording}
+            disabled={!hasKey}
             className={cn(
-              'flex h-14 w-14 items-center justify-center rounded-full transition-all outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]',
+              'flex h-14 w-14 items-center justify-center rounded-full transition-all outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)] disabled:cursor-not-allowed disabled:opacity-40',
               isRecording
                 ? 'animate-pulse bg-[var(--color-destructive)] text-[var(--color-destructive-foreground)]'
                 : 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:brightness-110',
             )}
             aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+            title={!hasKey ? 'Add a Groq API key on the Settings page first' : undefined}
           >
             {isRecording ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
           </button>
           <p className="text-sm text-[var(--color-muted-foreground)]">
-            {isRecording
-              ? 'Listening. Transcript appends every ~30s.'
-              : 'Click mic to start. Transcript appends every ~30s.'}
+            {helperText}
+            {!hasKey ? (
+              <>
+                {' '}
+                <Link className="underline hover:text-[var(--color-foreground)]" href="/settings">
+                  Open settings
+                </Link>
+                .
+              </>
+            ) : null}
           </p>
         </div>
 

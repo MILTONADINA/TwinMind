@@ -3,7 +3,6 @@ import { clientFromRequest, isGroqError, LLM_MODEL } from '@/lib/groq';
 import { CHAT_PROMPT } from '@/lib/prompts';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
 const MAX_TRANSCRIPT_CHARS = 60_000;
 const MAX_MESSAGES = 40;
@@ -15,8 +14,9 @@ type ChatRequestBody = {
 };
 
 export async function POST(req: Request): Promise<Response> {
-  let groqStream: AsyncIterable<{ choices: { delta?: { content?: string | null } }[] }> | null =
-    null;
+  let groqStream: AsyncIterable<{
+    choices: { delta?: { content?: string | null } }[];
+  }> | null = null;
 
   try {
     const groq = clientFromRequest(req);
@@ -37,15 +37,20 @@ Meeting transcript so far (grounding — treat as what you heard):
 ${transcript || '(no transcript yet)'}
 """`;
 
-    groqStream = (await groq.chat.completions.create({
-      model: LLM_MODEL,
-      temperature: 0.5,
-      stream: true,
-      messages: [
-        { role: 'system', content: groundedSystem },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-      ],
-    })) as unknown as AsyncIterable<{ choices: { delta?: { content?: string | null } }[] }>;
+    groqStream = (await groq.chat.completions.create(
+      {
+        model: LLM_MODEL,
+        temperature: 0.5,
+        stream: true,
+        messages: [
+          { role: 'system', content: groundedSystem },
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+        ],
+      },
+      { signal: req.signal },
+    )) as unknown as AsyncIterable<{
+      choices: { delta?: { content?: string | null } }[];
+    }>;
   } catch (e) {
     if (e instanceof HttpError) {
       return Response.json({ error: e.message }, { status: e.status });
@@ -63,17 +68,29 @@ ${transcript || '(no transcript yet)'}
     async start(controller) {
       const send = (payload: unknown) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+
+      const abortListener = () => controller.close();
+      req.signal.addEventListener('abort', abortListener, { once: true });
+
       try {
         for await (const chunk of groqStream!) {
+          if (req.signal.aborted) break;
           const delta = chunk.choices[0]?.delta?.content ?? '';
           if (delta) send({ delta });
         }
-        send({ done: true });
+        if (!req.signal.aborted) send({ done: true });
       } catch (e) {
-        console.error('chat: stream error', (e as Error).message);
-        send({ error: 'stream error' });
+        if (!req.signal.aborted) {
+          console.error('chat: stream error', (e as Error).message);
+          send({ error: 'stream error' });
+        }
       } finally {
-        controller.close();
+        req.signal.removeEventListener('abort', abortListener);
+        try {
+          controller.close();
+        } catch {
+          // already closed by the abort listener — ignore
+        }
       }
     },
   });

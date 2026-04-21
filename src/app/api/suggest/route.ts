@@ -6,7 +6,6 @@ import { SUGGEST_PROMPT } from '@/lib/prompts';
 import { CARD_TYPES, type Card, type CardType } from '@/types';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
 const MAX_TRANSCRIPT_CHARS = 20_000;
 const TYPE_SET = new Set<string>(CARD_TYPES);
@@ -27,7 +26,13 @@ export async function POST(req: Request): Promise<Response> {
     const avoidTitles = Array.isArray(body.avoidTitles) ? body.avoidTitles.slice(0, 12) : [];
 
     const userMessage = buildUserMessage(transcript, avoidTitles);
-    const cards = await requestCards(groq, systemPrompt, userMessage, /* allowRetry */ true);
+    const cards = await requestCards(
+      groq,
+      systemPrompt,
+      userMessage,
+      /* allowRetry */ true,
+      req.signal,
+    );
 
     return Response.json({ cards });
   } catch (e) {
@@ -48,17 +53,21 @@ async function requestCards(
   systemPrompt: string,
   userMessage: string,
   allowRetry: boolean,
+  signal: AbortSignal,
 ): Promise<[Card, Card, Card]> {
-  const resp = await groq.chat.completions.create({
-    model: LLM_MODEL,
-    temperature: 0.4,
-    max_tokens: 600,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMessage },
-    ],
-  });
+  const resp = await groq.chat.completions.create(
+    {
+      model: LLM_MODEL,
+      temperature: 0.4,
+      max_tokens: 600,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+    },
+    { signal },
+  );
 
   const content = resp.choices[0]?.message?.content ?? '';
   const parsed = parseCards(content);
@@ -68,7 +77,7 @@ async function requestCards(
     const correction =
       userMessage +
       '\n\nYour previous response was not valid JSON matching the schema. Return only the JSON object now — exactly three cards, each with a valid type, non-empty title, and non-empty preview.';
-    return requestCards(groq, systemPrompt, correction, false);
+    return requestCards(groq, systemPrompt, correction, false, signal);
   }
 
   throw new HttpError(422, 'Model did not produce valid suggestion JSON after a retry.');

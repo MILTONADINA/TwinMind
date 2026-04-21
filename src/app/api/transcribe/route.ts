@@ -2,7 +2,6 @@ import { HttpError } from '@/lib/errors';
 import { clientFromRequest, isGroqError, WHISPER_MODEL } from '@/lib/groq';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // Groq Whisper limit
 
@@ -26,11 +25,14 @@ export async function POST(req: Request): Promise<Response> {
       type: audio.type || 'audio/webm',
     });
 
-    const result = await groq.audio.transcriptions.create({
-      file,
-      model: WHISPER_MODEL,
-      response_format: 'json',
-    });
+    const result = await groq.audio.transcriptions.create(
+      {
+        file,
+        model: WHISPER_MODEL,
+        response_format: 'json',
+      },
+      { signal: req.signal },
+    );
 
     return Response.json({ text: result.text ?? '' });
   } catch (e) {

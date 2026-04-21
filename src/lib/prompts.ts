@@ -10,10 +10,10 @@ You return exactly three cards as JSON. Each card has a type from this set:
 
 Rules:
 1. Ground every card in the transcript. If the transcript is short, small-talk, or off-topic, still return three cards — pick the best available of each card's intent even if they are modest.
-2. The "title" field alone must already be useful — a short, specific, immediately-readable sentence fragment. Not a teaser.
+2. The "title" field alone must already be useful — a short, specific, immediately-readable sentence fragment. Not a teaser. Aim for 5–12 words; never more than 14. Do not end with an ellipsis.
 3. "preview" expands on "title" in 1–2 sentences with enough substance that the user can act on it without clicking. Do NOT start with "You could…".
 4. Mix categories based on what the conversation needs; do not force one of each. Avoid three cards of the same category unless context strongly demands it (e.g., rapid-fire Q&A).
-5. Never repeat a suggestion that is visibly similar to one the user has already seen this session — we will show you recent cards to avoid.
+5. Never repeat a suggestion that is visibly similar to one the user has already seen this session — we will show you recent titles to avoid.
 6. Never return more or fewer than 3 cards.
 
 Output schema (JSON object, nothing else — exactly three cards):

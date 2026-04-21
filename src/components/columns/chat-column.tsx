@@ -1,6 +1,7 @@
 'use client';
 
 import { Send } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,16 +12,19 @@ import { useSession } from '@/stores/session';
 
 export function ChatColumn() {
   const messages = useSession((s) => s.messages);
+  const apiKey = useSession((s) => s.apiKey);
   const { send } = useChatSender();
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const hasKey = apiKey.length > 0;
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = draft.trim();
     if (!text) return;
-    setDraft('');
-    void send(text);
+    const result = await send(text);
+    if (result.ok) setDraft('');
   };
 
   useEffect(() => {
@@ -40,8 +44,18 @@ export function ChatColumn() {
       <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
         <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
           {messages.length === 0 ? (
-            <p className="mt-8 text-center text-sm text-[var(--color-muted-foreground)]">
-              Click a suggestion or type a question below.
+            <p className="mt-8 px-2 text-center text-sm text-[var(--color-muted-foreground)]">
+              {hasKey ? (
+                'Click a suggestion or type a question below.'
+              ) : (
+                <>
+                  Add your Groq API key on the{' '}
+                  <Link className="underline" href="/settings">
+                    Settings page
+                  </Link>{' '}
+                  to start chatting.
+                </>
+              )}
             </p>
           ) : (
             messages.map((m) => (
@@ -72,10 +86,11 @@ export function ChatColumn() {
           <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Ask anything…"
+            placeholder={hasKey ? 'Ask anything…' : 'Add your Groq API key to start chatting'}
             aria-label="Chat input"
+            disabled={!hasKey}
           />
-          <Button type="submit" disabled={!draft.trim()}>
+          <Button type="submit" disabled={!hasKey || !draft.trim()}>
             <Send className="h-4 w-4" />
             Send
           </Button>

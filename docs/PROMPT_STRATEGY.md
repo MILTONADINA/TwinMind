@@ -47,22 +47,23 @@ Rules:
    or off-topic, still return three cards — pick the best available of each
    card's intent even if they are modest.
 2. The `title` field alone must already be useful — a short, specific,
-   immediately-readable sentence fragment. Not a teaser.
+   immediately-readable sentence fragment. Not a teaser. Aim for 5–12 words;
+   never more than 14. Do not end with an ellipsis.
 3. `preview` expands on `title` in 1–2 sentences with enough substance that
    the user can act on it without clicking. Do NOT start with "You could…".
 4. Mix categories based on what the conversation needs; do not force one of
    each. Avoid three cards of the same category unless context strongly
    demands it (e.g., rapid-fire Q&A).
 5. Never repeat a suggestion that is visibly similar to one the user has
-   already seen this session — we will show you recent cards to avoid.
+   already seen this session — we will show you recent titles to avoid.
 6. Never return more or fewer than 3 cards.
 
-Output schema (JSON object, nothing else):
+Output schema (JSON object, nothing else — exactly three cards):
 {
   "cards": [
-    { "type": "question"|"talking_point"|"answer"|"fact_check",
-      "title": string,
-      "preview": string }, …three items
+    { "type": "question"|"talking_point"|"answer"|"fact_check", "title": string, "preview": string },
+    { "type": "question"|"talking_point"|"answer"|"fact_check", "title": string, "preview": string },
+    { "type": "question"|"talking_point"|"answer"|"fact_check", "title": string, "preview": string }
   ]
 }
 ```
@@ -85,7 +86,9 @@ Return the JSON object now.
 
 - **`temperature: 0.4`.** Low enough to respect the structure, high enough to avoid repeating the same three cards on similar contexts.
 - **`response_format: json_object`.** Groq's JSON mode; reliably parseable. We still validate the parsed shape client-side (three cards, valid type, non-empty strings).
-- **Dedup by showing recent cards.** Prompt-level dedup is dramatically more reliable than post-hoc similarity on short strings.
+- **Three literal object slots in the schema.** The earlier `[{…}]` one-slot form occasionally produced a single card; spelling out three slots removes that failure mode without costing tokens.
+- **Title 5–12 words.** The preview-must-be-useful rule needs a length ceiling or the model expands titles into paragraphs. 12 words fits one line in the card without wrapping on the prototype's column width.
+- **Dedup by showing recent card titles.** Prompt-level dedup is dramatically more reliable than post-hoc similarity on short strings.
 - **`preview` must not start with "You could…".** A small nudge that eliminates the most common category of empty-calorie output.
 - **Retry policy.** On `JSON.parse` failure or schema mismatch, we retry once with the message `Previous response was not valid JSON matching the schema. Return only the JSON object now.` appended. On second failure: surface a toast and skip the refresh — do not break the interval.
 
