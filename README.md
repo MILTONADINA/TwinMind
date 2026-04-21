@@ -4,7 +4,7 @@
 
 |                             |                                                                           |
 | --------------------------- | ------------------------------------------------------------------------- |
-| **Live app**                | _Deployed URL added after first Vercel deploy._                           |
+| **Live app**                | <https://twinmind-psi.vercel.app>                                         |
 | **Reference prototype**     | <https://claude.ai/public/artifacts/2d262df0-0353-47cc-a03a-de434aaa2552> |
 | **Models (locked by spec)** | Groq — Whisper Large V3 for STT, GPT-OSS 120B for suggestions & chat      |
 | **Hosting**                 | Vercel (Fluid Compute, Node.js 24)                                        |
