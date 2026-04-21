@@ -37,7 +37,7 @@ Thumbs.db
 # Vercel
 .vercel
 
-# Claude Code runtime state
+# Local tool state
 .claude/
 
 # Assignment spec (not committed to public repo)

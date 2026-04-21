@@ -16,12 +16,12 @@ Rules:
 5. Never repeat a suggestion that is visibly similar to one the user has already seen this session — we will show you recent cards to avoid.
 6. Never return more or fewer than 3 cards.
 
-Output schema (JSON object, nothing else):
+Output schema (JSON object, nothing else — exactly three cards):
 {
   "cards": [
-    { "type": "question"|"talking_point"|"answer"|"fact_check",
-      "title": string,
-      "preview": string }
+    { "type": "question"|"talking_point"|"answer"|"fact_check", "title": string, "preview": string },
+    { "type": "question"|"talking_point"|"answer"|"fact_check", "title": string, "preview": string },
+    { "type": "question"|"talking_point"|"answer"|"fact_check", "title": string, "preview": string }
   ]
 }`;
 
