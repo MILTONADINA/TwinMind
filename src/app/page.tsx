@@ -1,12 +1,19 @@
+import { ChatColumn } from '@/components/columns/chat-column';
+import { SuggestionsColumn } from '@/components/columns/suggestions-column';
+import { TranscriptColumn } from '@/components/columns/transcript-column';
+import { Header } from '@/components/header';
+import { SessionLoader } from '@/components/session-loader';
+
 export default function Home() {
   return (
-    <main className="min-h-dvh">
-      <div className="flex h-dvh flex-col items-center justify-center gap-3 px-6 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">TwinMind — Live Suggestions</h1>
-        <p className="text-muted-foreground max-w-md text-sm">
-          Scaffolding deployed. Transcript, live suggestions, and chat columns land next.
-        </p>
-      </div>
-    </main>
+    <div className="flex h-dvh flex-col">
+      <SessionLoader />
+      <Header />
+      <main className="mx-auto grid min-h-0 w-full max-w-screen-2xl flex-1 grid-cols-1 gap-3 p-3 md:grid-cols-3">
+        <TranscriptColumn />
+        <SuggestionsColumn />
+        <ChatColumn />
+      </main>
+    </div>
   );
 }
