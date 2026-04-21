@@ -1,0 +1,13 @@
+# Normalize line endings to LF on commit, regardless of platform.
+* text=auto eol=lf
+
+# Keep binary formats untouched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.docx binary
