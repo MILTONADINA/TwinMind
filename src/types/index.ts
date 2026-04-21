@@ -23,6 +23,10 @@ export type Batch = {
 
 export type Role = 'user' | 'assistant';
 
+// The minimal shape our routes need — { role, content }. Derived from Message
+// so any future Message additions don't silently widen the wire contract.
+export type ApiMessage = { role: Role; content: string };
+
 export type CardSnapshot = {
   type: CardType;
   title: string;

@@ -1,5 +1,6 @@
 import { HttpError } from '@/lib/errors';
-import { clientFromRequest, isGroqError, WHISPER_MODEL } from '@/lib/groq';
+import { WHISPER_MODEL } from '@/lib/groq';
+import { clientFromRequest, isGroqError } from '@/lib/groq-server';
 
 export const runtime = 'nodejs';
 

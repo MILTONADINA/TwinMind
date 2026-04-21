@@ -67,8 +67,22 @@ Every decision here was a fork. This doc records the alternative and why we didn
 - **Rejected:** Two routes (`/api/detail`, `/api/ask`).
 - **Why:** The request shape is identical (messages + transcript + system prompt). Two routes would be copy-paste with a prompt constant swapped. The `systemPrompt` is already user-editable in Settings, so different defaults are one store field, not one route file.
 
-## No tests in this submission
+## Tests: pure-function unit tests, no integration / e2e
 
-- **Chose:** Ship without an automated test suite.
-- **Rejected:** Vitest + Playwright.
-- **Why:** The spec explicitly says _"Do not over-engineer. We are not evaluating production-readiness at scale."_ What's worth testing here is model behaviour (judgement, not assertions) and the audio pipeline (requires a real mic or a deep mock). Both are cheaper to validate by actually using the app — which is also how the interview evaluates the submission. The code paths that `tsc --strict` can't catch (mic errors, stream cancellation, toast on failure) are small enough to verify by hand in one session.
+- **Chose:** Vitest with focused unit tests for the pure parsers that the
+  type system cannot guarantee — `parseCards`, `transcriptWindow`,
+  `snapshotToJson` / `snapshotToText`.
+- **Rejected:** Component tests (React Testing Library), API-route tests
+  with a mocked Groq SDK, and Playwright end-to-end tests.
+- **Why:** The spec explicitly says _"Do not over-engineer. We are not evaluating production-readiness at scale."_ Three categories divide cleanly:
+  1. **Pure functions with tricky correctness** (JSON schema validation,
+     time-windowed filtering, structured export). TypeScript can't catch
+     a bad-JSON recovery path or a "fall back to last N chunks" branch.
+     A dozen table-driven unit tests lock these down in under 100 lines
+     — cheap, durable, no mocks required. These are in.
+  2. **Code paths against external services** (Groq SDK, MediaRecorder).
+     Meaningful tests require non-trivial mocks that tend to drift from
+     real behaviour. The interview uses the deployed app live — that's
+     the real test harness.
+  3. **Model behaviour.** Judgement, not assertions. LLM-eval frameworks
+     are out of scope.

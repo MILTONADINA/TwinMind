@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useSession } from '@/stores/session';
 
 export function TranscriptColumn() {
+  const hydrated = useSession((s) => s.hydrated);
   const apiKey = useSession((s) => s.apiKey);
   const chunks = useSession((s) => s.chunks);
   const isRecording = useSession((s) => s.isRecording);
@@ -22,6 +23,7 @@ export function TranscriptColumn() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const hasKey = apiKey.length > 0;
+  const showNoKeyHint = hydrated && !hasKey;
 
   const handleChunk = useCallback(
     async (blob: Blob, startedAt: number, durationMs: number) => {
@@ -82,7 +84,7 @@ export function TranscriptColumn() {
     el.scrollTop = el.scrollHeight;
   }, [chunks]);
 
-  const helperText = !hasKey
+  const helperText = showNoKeyHint
     ? 'Add your Groq API key on the Settings page to enable the mic.'
     : isRecording
       ? 'Listening. Transcript appends every ~30s.'
@@ -108,7 +110,7 @@ export function TranscriptColumn() {
           <button
             type="button"
             onClick={isRecording ? stopRecording : startRecording}
-            disabled={!hasKey}
+            disabled={showNoKeyHint}
             className={cn(
               'flex h-14 w-14 items-center justify-center rounded-full transition-all outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)] disabled:cursor-not-allowed disabled:opacity-40',
               isRecording
@@ -116,13 +118,13 @@ export function TranscriptColumn() {
                 : 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:brightness-110',
             )}
             aria-label={isRecording ? 'Stop recording' : 'Start recording'}
-            title={!hasKey ? 'Add a Groq API key on the Settings page first' : undefined}
+            title={showNoKeyHint ? 'Add a Groq API key on the Settings page first' : undefined}
           >
             {isRecording ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
           </button>
           <p className="text-sm text-[var(--color-muted-foreground)]">
             {helperText}
-            {!hasKey ? (
+            {showNoKeyHint ? (
               <>
                 {' '}
                 <Link className="underline hover:text-[var(--color-foreground)]" href="/settings">

@@ -1,6 +1,11 @@
+import type { Stream } from 'groq-sdk/lib/streaming';
+import type { ChatCompletionChunk } from 'groq-sdk/resources/chat/completions';
 import { HttpError } from '@/lib/errors';
-import { clientFromRequest, isGroqError, LLM_MODEL } from '@/lib/groq';
+import { LLM_MODEL } from '@/lib/groq';
+import { clientFromRequest, isGroqError } from '@/lib/groq-server';
 import { CHAT_PROMPT } from '@/lib/prompts';
+import { keepLastChars } from '@/lib/text';
+import type { ApiMessage } from '@/types';
 
 export const runtime = 'nodejs';
 
@@ -8,15 +13,13 @@ const MAX_TRANSCRIPT_CHARS = 60_000;
 const MAX_MESSAGES = 40;
 
 type ChatRequestBody = {
-  messages?: { role: 'user' | 'assistant'; content: string }[];
+  messages?: ApiMessage[];
   transcript?: string;
   systemPrompt?: string;
 };
 
 export async function POST(req: Request): Promise<Response> {
-  let groqStream: AsyncIterable<{
-    choices: { delta?: { content?: string | null } }[];
-  }> | null = null;
+  let groqStream: Stream<ChatCompletionChunk> | null = null;
 
   try {
     const groq = clientFromRequest(req);
@@ -27,7 +30,7 @@ export async function POST(req: Request): Promise<Response> {
       throw new HttpError(400, 'messages is required');
     }
 
-    const transcript = truncate(body.transcript ?? '', MAX_TRANSCRIPT_CHARS);
+    const transcript = keepLastChars(body.transcript ?? '', MAX_TRANSCRIPT_CHARS);
     const userSystem = (body.systemPrompt ?? '').trim() || CHAT_PROMPT;
     const groundedSystem = `${userSystem}
 
@@ -37,7 +40,7 @@ Meeting transcript so far (grounding — treat as what you heard):
 ${transcript || '(no transcript yet)'}
 """`;
 
-    groqStream = (await groq.chat.completions.create(
+    groqStream = await groq.chat.completions.create(
       {
         model: LLM_MODEL,
         temperature: 0.5,
@@ -48,9 +51,7 @@ ${transcript || '(no transcript yet)'}
         ],
       },
       { signal: req.signal },
-    )) as unknown as AsyncIterable<{
-      choices: { delta?: { content?: string | null } }[];
-    }>;
+    );
   } catch (e) {
     if (e instanceof HttpError) {
       return Response.json({ error: e.message }, { status: e.status });
@@ -103,9 +104,4 @@ ${transcript || '(no transcript yet)'}
       connection: 'keep-alive',
     },
   });
-}
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(text.length - max);
 }

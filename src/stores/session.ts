@@ -14,7 +14,7 @@ import {
   saveApiKey,
   saveSettings as saveSettingsToStorage,
 } from '@/lib/storage';
-import type { Batch, Card, CardSnapshot, Chunk, Message, Role, Settings } from '@/types';
+import type { Batch, Card, CardSnapshot, Chunk, Message, Settings } from '@/types';
 
 export const DEFAULT_SETTINGS: Settings = {
   prompts: DEFAULT_PROMPTS,
@@ -98,12 +98,7 @@ export const useSession = create<SessionState>((set, get) => ({
   appendChunk: (text, startedAt, durationMs) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    const chunk: Chunk = {
-      id: uid(),
-      startedAt,
-      durationMs,
-      text: trimmed,
-    };
+    const chunk: Chunk = { id: uid(), startedAt, durationMs, text: trimmed };
     set((s) => {
       const last = s.chunks[s.chunks.length - 1];
       if (!last || startedAt >= last.startedAt) {
@@ -116,11 +111,7 @@ export const useSession = create<SessionState>((set, get) => ({
   },
 
   prependBatch: (cards) => {
-    const batch: Batch = {
-      id: uid(),
-      createdAt: Date.now(),
-      cards,
-    };
+    const batch: Batch = { id: uid(), createdAt: Date.now(), cards };
     set((s) => ({ batches: [batch, ...s.batches] }));
     return batch;
   },
@@ -128,7 +119,7 @@ export const useSession = create<SessionState>((set, get) => ({
   appendUserMessage: (content, extras) => {
     const message: Message = {
       id: uid(),
-      role: 'user' as Role,
+      role: 'user',
       createdAt: Date.now(),
       content,
       ...(extras?.sourceCardId ? { sourceCardId: extras.sourceCardId } : {}),
@@ -141,7 +132,7 @@ export const useSession = create<SessionState>((set, get) => ({
   startAssistantMessage: () => {
     const message: Message = {
       id: uid(),
-      role: 'assistant' as Role,
+      role: 'assistant',
       createdAt: Date.now(),
       content: '',
       streaming: true,
@@ -163,24 +154,6 @@ export const useSession = create<SessionState>((set, get) => ({
   },
 
   resetSession: () => {
-    set({
-      chunks: [],
-      batches: [],
-      messages: [],
-    });
+    set({ chunks: [], batches: [], messages: [] });
   },
 }));
-
-export function transcriptText(chunks: Chunk[]): string {
-  return chunks.map((c) => c.text).join(' ');
-}
-
-const MIN_FALLBACK_CHUNKS = 4;
-
-export function transcriptWindow(chunks: Chunk[], minutes: number): string {
-  if (chunks.length === 0) return '';
-  const cutoff = Date.now() - minutes * 60 * 1000;
-  const windowed = chunks.filter((c) => c.startedAt >= cutoff);
-  const selected = windowed.length > 0 ? windowed : chunks.slice(-MIN_FALLBACK_CHUNKS);
-  return selected.map((c) => c.text).join(' ');
-}

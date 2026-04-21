@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useSession } from '@/stores/session';
 
 export function ChatColumn() {
+  const hydrated = useSession((s) => s.hydrated);
   const messages = useSession((s) => s.messages);
   const apiKey = useSession((s) => s.apiKey);
   const { send } = useChatSender();
@@ -18,6 +19,7 @@ export function ChatColumn() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const hasKey = apiKey.length > 0;
+  const showNoKeyHint = hydrated && !hasKey;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,9 +47,7 @@ export function ChatColumn() {
         <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
           {messages.length === 0 ? (
             <p className="mt-8 px-2 text-center text-sm text-[var(--color-muted-foreground)]">
-              {hasKey ? (
-                'Click a suggestion or type a question below.'
-              ) : (
+              {showNoKeyHint ? (
                 <>
                   Add your Groq API key on the{' '}
                   <Link className="underline" href="/settings">
@@ -55,6 +55,8 @@ export function ChatColumn() {
                   </Link>{' '}
                   to start chatting.
                 </>
+              ) : (
+                'Click a suggestion or type a question below.'
               )}
             </p>
           ) : (
@@ -86,11 +88,13 @@ export function ChatColumn() {
           <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder={hasKey ? 'Ask anything…' : 'Add your Groq API key to start chatting'}
+            placeholder={
+              showNoKeyHint ? 'Add your Groq API key to start chatting' : 'Ask anything…'
+            }
             aria-label="Chat input"
-            disabled={!hasKey}
+            disabled={showNoKeyHint}
           />
-          <Button type="submit" disabled={!hasKey || !draft.trim()}>
+          <Button type="submit" disabled={showNoKeyHint || !draft.trim()}>
             <Send className="h-4 w-4" />
             Send
           </Button>

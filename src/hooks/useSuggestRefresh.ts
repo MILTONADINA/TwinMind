@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { GROQ_KEY_HEADER } from '@/lib/groq';
-import { transcriptWindow, useSession } from '@/stores/session';
+import { transcriptWindow } from '@/lib/transcript';
+import { useSession } from '@/stores/session';
 import type { Card } from '@/types';
+
+type RefreshOptions = { isManual?: boolean };
 
 export function useSuggestRefresh() {
   const isRecording = useSession((s) => s.isRecording);
@@ -13,7 +16,7 @@ export function useSuggestRefresh() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const inFlight = useRef<AbortController | null>(null);
 
-  const runRefresh = useCallback(async (options: { isManual?: boolean } = {}) => {
+  const runRefresh = useCallback(async (options: RefreshOptions = {}) => {
     const state = useSession.getState();
     const { apiKey, settings, chunks, batches, isRecording: recording } = state;
 

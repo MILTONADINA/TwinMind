@@ -1,14 +1,15 @@
 import type Groq from 'groq-sdk';
 import { HttpError } from '@/lib/errors';
-import { clientFromRequest, isGroqError, LLM_MODEL } from '@/lib/groq';
-import { uid } from '@/lib/id';
+import { LLM_MODEL } from '@/lib/groq';
+import { clientFromRequest, isGroqError } from '@/lib/groq-server';
 import { SUGGEST_PROMPT } from '@/lib/prompts';
-import { CARD_TYPES, type Card, type CardType } from '@/types';
+import { parseCards } from '@/lib/suggest-parser';
+import { keepLastChars } from '@/lib/text';
+import type { Card } from '@/types';
 
 export const runtime = 'nodejs';
 
 const MAX_TRANSCRIPT_CHARS = 20_000;
-const TYPE_SET = new Set<string>(CARD_TYPES);
 
 type SuggestRequestBody = {
   transcript?: string;
@@ -21,18 +22,12 @@ export async function POST(req: Request): Promise<Response> {
     const groq = clientFromRequest(req);
     const body = (await req.json().catch(() => ({}))) as SuggestRequestBody;
 
-    const transcript = truncate(body.transcript ?? '', MAX_TRANSCRIPT_CHARS);
+    const transcript = keepLastChars(body.transcript ?? '', MAX_TRANSCRIPT_CHARS);
     const systemPrompt = (body.systemPrompt ?? '').trim() || SUGGEST_PROMPT;
     const avoidTitles = Array.isArray(body.avoidTitles) ? body.avoidTitles.slice(0, 12) : [];
 
     const userMessage = buildUserMessage(transcript, avoidTitles);
-    const cards = await requestCards(
-      groq,
-      systemPrompt,
-      userMessage,
-      /* allowRetry */ true,
-      req.signal,
-    );
+    const cards = await requestCards(groq, systemPrompt, userMessage, req.signal);
 
     return Response.json({ cards });
   } catch (e) {
@@ -52,62 +47,36 @@ async function requestCards(
   groq: Groq,
   systemPrompt: string,
   userMessage: string,
-  allowRetry: boolean,
   signal: AbortSignal,
 ): Promise<[Card, Card, Card]> {
-  const resp = await groq.chat.completions.create(
-    {
-      model: LLM_MODEL,
-      temperature: 0.4,
-      max_tokens: 600,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-    },
-    { signal },
-  );
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const message =
+      attempt === 0
+        ? userMessage
+        : `${userMessage}
 
-  const content = resp.choices[0]?.message?.content ?? '';
-  const parsed = parseCards(content);
-  if (parsed) return parsed;
+Your previous response was not valid JSON matching the schema. Return only the JSON object now — exactly three cards, each with a valid type, non-empty title, and non-empty preview.`;
 
-  if (allowRetry) {
-    const correction =
-      userMessage +
-      '\n\nYour previous response was not valid JSON matching the schema. Return only the JSON object now — exactly three cards, each with a valid type, non-empty title, and non-empty preview.';
-    return requestCards(groq, systemPrompt, correction, false, signal);
+    const resp = await groq.chat.completions.create(
+      {
+        model: LLM_MODEL,
+        temperature: 0.4,
+        max_tokens: 600,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message },
+        ],
+      },
+      { signal },
+    );
+
+    const content = resp.choices[0]?.message?.content ?? '';
+    const parsed = parseCards(content);
+    if (parsed) return parsed;
   }
 
   throw new HttpError(422, 'Model did not produce valid suggestion JSON after a retry.');
-}
-
-function parseCards(text: string): [Card, Card, Card] | null {
-  try {
-    const parsed = JSON.parse(text) as { cards?: unknown };
-    if (!parsed.cards || !Array.isArray(parsed.cards) || parsed.cards.length !== 3) return null;
-    const cards: Card[] = [];
-    for (const raw of parsed.cards) {
-      if (!raw || typeof raw !== 'object') return null;
-      const r = raw as Record<string, unknown>;
-      const type = r.type;
-      const title = r.title;
-      const preview = r.preview;
-      if (typeof type !== 'string' || !TYPE_SET.has(type)) return null;
-      if (typeof title !== 'string' || !title.trim()) return null;
-      if (typeof preview !== 'string' || !preview.trim()) return null;
-      cards.push({
-        id: uid(),
-        type: type as CardType,
-        title: title.trim(),
-        preview: preview.trim(),
-      });
-    }
-    return [cards[0]!, cards[1]!, cards[2]!];
-  } catch {
-    return null;
-  }
 }
 
 function buildUserMessage(transcript: string, avoidTitles: string[]): string {
@@ -127,9 +96,4 @@ function buildUserMessage(transcript: string, avoidTitles: string[]): string {
   parts.push('');
   parts.push('Return the JSON object now.');
   return parts.join('\n');
-}
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(text.length - max);
 }

@@ -58,7 +58,7 @@ export function SuggestionsColumn() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => void runRefresh()}
+            onClick={() => void runRefresh({ isManual: true })}
             disabled={isRefreshing}
           >
             <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />

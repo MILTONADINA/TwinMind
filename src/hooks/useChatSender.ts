@@ -4,22 +4,16 @@ import { useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { GROQ_KEY_HEADER } from '@/lib/groq';
 import { readSseStream } from '@/lib/sse';
-import { transcriptText, useSession } from '@/stores/session';
-import type { Card, CardSnapshot, Message } from '@/types';
+import { transcriptText } from '@/lib/transcript';
+import { useSession } from '@/stores/session';
+import type { ApiMessage, Card, CardSnapshot, Message } from '@/types';
 
-type SendOptions = {
-  card?: Card;
-};
+type SendOptions = { card?: Card };
 
 export type SendResult = { ok: true } | { ok: false; reason: 'no-key' | 'empty' };
 
 export function useChatSender() {
   const abortRef = useRef<AbortController | null>(null);
-
-  const cancel = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-  }, []);
 
   const send = useCallback(
     async (userInput: string, opts: SendOptions = {}): Promise<SendResult> => {
@@ -53,7 +47,7 @@ export function useChatSender() {
       try {
         const fresh = useSession.getState();
         const transcript = transcriptText(fresh.chunks);
-        const messagesPayload = fresh.messages
+        const messagesPayload: ApiMessage[] = fresh.messages
           .filter((m) => m.id !== assistant.id)
           .map(toApiMessage);
 
@@ -104,10 +98,10 @@ export function useChatSender() {
     [],
   );
 
-  return { send, cancel };
+  return { send };
 }
 
-function toApiMessage(m: Message): { role: Message['role']; content: string } {
+function toApiMessage(m: Message): ApiMessage {
   if (m.cardSnapshot) {
     return {
       role: m.role,

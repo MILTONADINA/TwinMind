@@ -15,28 +15,53 @@ src/
 │   │   ├── transcribe/route.ts   POST: audio chunk → text
 │   │   ├── suggest/route.ts      POST: transcript window → 3 cards
 │   │   └── chat/route.ts         POST: prompt + transcript → SSE stream
-│   ├── settings/page.tsx         Key + prompts + knobs
-│   ├── layout.tsx                Root, dark theme, toaster
-│   ├── page.tsx                  3-column shell
+│   ├── settings/
+│   │   ├── page.tsx              Server shell (metadata export)
+│   │   └── settings-view.tsx     Client form (key, prompts, knobs)
+│   ├── error.tsx                 Route-level error boundary
 │   ├── globals.css               Tailwind v4 tokens
-│   └── error.tsx                 Graceful route-level error boundary
+│   ├── layout.tsx                Root, dark theme, toaster
+│   └── page.tsx                  3-column shell
 ├── components/
 │   ├── columns/
-│   │   ├── transcript-column.tsx
+│   │   ├── chat-column.tsx
 │   │   ├── suggestions-column.tsx
-│   │   └── chat-column.tsx
-│   └── ui/                        shadcn primitives
+│   │   └── transcript-column.tsx
+│   ├── ui/                        shadcn-style primitives (button, card,
+│   │                              input, label, slider, textarea)
+│   ├── header.tsx                 Title, export buttons, settings link
+│   └── session-loader.tsx         Hydrates store from sessionStorage /
+│                                  localStorage on mount
+├── hooks/
+│   ├── useChatSender.ts           Append user + stream assistant via SSE
+│   └── useSuggestRefresh.ts       30s interval + manual Reload
 ├── lib/
-│   ├── groq.ts                    Thin SDK wrappers + fetch helpers
-│   ├── prompts.ts                 Default system prompts (exported constants)
+│   ├── errors.ts                  HttpError
+│   ├── export.ts                  Session → JSON / TXT (pure)
+│   ├── groq.ts                    Client-safe constants (models, header)
+│   ├── groq-server.ts             Server-only: clientFromRequest + isGroqError
+│   ├── id.ts                      uid() (crypto.randomUUID + fallback)
+│   ├── prompts.ts                 Default system prompts
 │   ├── recorder.ts                MediaRecorder wrapper, 30s timeslice
-│   ├── export.ts                  Session → JSON / TXT
-│   └── utils.ts                   cn() + small helpers
+│   ├── sse.ts                     Client-side SSE reader
+│   ├── storage.ts                 localStorage (settings) + sessionStorage (key)
+│   ├── suggest-parser.ts          JSON → validated [Card,Card,Card] | null
+│   ├── text.ts                    keepLastChars
+│   ├── transcript.ts              transcriptText + transcriptWindow
+│   └── utils.ts                   cn()
 ├── stores/
-│   └── session.ts                 Zustand store (transcript, batches, chat, settings)
+│   └── session.ts                 Zustand store: pure state + setters
 └── types/
-    └── index.ts                   Shared types (Chunk, Batch, Card, Message)
+    └── index.ts                   Chunk, Card, CardSnapshot, Batch,
+                                   Message, Role, ApiMessage, Prompts,
+                                   Settings
 ```
+
+`groq.ts` is client-safe (pure string constants) so client components can
+import `GROQ_KEY_HEADER` without dragging the Groq SDK into the browser
+bundle. Anything that talks to Groq lives in `groq-server.ts` and is
+marked with `import 'server-only'` — a build-time guardrail that errors
+the bundle if a client component accidentally imports it.
 
 ## Data model
 
